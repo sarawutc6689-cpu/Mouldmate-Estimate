@@ -6,6 +6,8 @@
 <title>ทะเบียนแบบประเมิน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --primary:#b91c1c;
@@ -427,6 +429,22 @@
 </div>
 
 <script>
+/* ==========================================================================
+   วาง Firebase config ของคุณตรงนี้ (ได้จาก Firebase Console > Project settings)
+   ========================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBpS_GjOVa1_MN8bZhAkhrrlp7FoGx6h2s",
+  authDomain: "mm-estimate.firebaseapp.com",
+  databaseURL: "https://mm-estimate-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mm-estimate",
+  storageBucket: "mm-estimate.firebasestorage.app",
+  messagingSenderId: "448000386724",
+  appId: "1:448000386724:web:d49914b19d105733702831"
+};
+firebase.initializeApp(firebaseConfig);
+const statusRef = firebase.database().ref('linkStatus');
+/* ========================================================================== */
+
 const DATA = {
   "งานบริการทั่วไป": [
     { id: "gen-01", title: "แบบประเมินความพึงพอใจ การให้บริการหน้าเคาน์เตอร์", desc: "สำหรับผู้มาติดต่อ ณ จุดบริการ", url: "https://forms.gle/ตัวอย่าง1" },
@@ -474,26 +492,23 @@ function isActive(id){
 
 function loadStatus(){
   return new Promise(function(resolve){
-    google.script.run
-      .withSuccessHandler(function(json){
-        try{ STATUS = json ? JSON.parse(json) : {}; }catch(e){ STATUS = {}; }
-        resolve();
-      })
-      .withFailureHandler(function(err){
-        console.error('โหลดสถานะไม่สำเร็จ', err);
-        STATUS = {};
-        resolve();
-      })
-      .getLinkStatus();
+    let first = true;
+    statusRef.on('value', function(snapshot){
+      STATUS = snapshot.exists() ? snapshot.val() : {};
+      if(first){ first = false; resolve(); }
+      else{ render(); } // อัปเดตแบบเรียลไทม์เมื่อมีคนอื่นแก้ไขสถานะ
+    }, function(err){
+      console.error('โหลดสถานะไม่สำเร็จ', err);
+      STATUS = {};
+      if(first){ first = false; resolve(); }
+    });
   });
 }
 
 function saveStatus(){
-  google.script.run
-    .withFailureHandler(function(err){
-      console.error('เกิดข้อผิดพลาดในการบันทึกสถานะ', err);
-    })
-    .setLinkStatus(JSON.stringify(STATUS));
+  statusRef.set(STATUS).catch(function(err){
+    console.error('เกิดข้อผิดพลาดในการบันทึกสถานะ', err);
+  });
 }
 
 function buildTabs(){
